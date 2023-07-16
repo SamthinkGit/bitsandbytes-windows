@@ -1,7 +1,8 @@
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
-ROOT_DIR := $(patsubst %/,%,$(dir $(MKFILE_PATH)))
+ROOT_DIR := .
 
-GPP:= /usr/bin/g++
+GPP:= g++
+CL:= cl
 #GPP:= /sw/gcc/11.2.0/bin/g++
 ifeq ($(CUDA_HOME),)
 	CUDA_HOME:= $(shell which nvcc | rev | cut -d'/' -f3- | rev)
@@ -9,23 +10,42 @@ endif
 
 ifndef CUDA_VERSION
 $(warning WARNING: CUDA_VERSION not set. Call make with CUDA string, for example: make cuda11x CUDA_VERSION=115 or make cpuonly CUDA_VERSION=CPU)
-CUDA_VERSION:=
+CUDA_VERSION:=118
 endif
 
-
+ifndef VisualStudioVersion
+$(warning WARNING: Visual Studio not found, initializing x64)
+#"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
+endif
 
 NVCC := $(CUDA_HOME)/bin/nvcc
 
 ###########################################
 
-CSRC := $(ROOT_DIR)/csrc
+CSRC := csrc
 BUILD_DIR:= $(ROOT_DIR)/build
 
-FILES_CUDA := $(CSRC)/ops.cu $(CSRC)/kernels.cu
-FILES_CPP := $(CSRC)/common.cpp $(CSRC)/cpu_ops.cpp $(CSRC)/pythonInterface.c
+WINLIBS_DIR := c:/app/winlibs
 
-INCLUDE :=  -I $(CUDA_HOME)/include -I $(ROOT_DIR)/csrc -I $(CONDA_PREFIX)/include -I $(ROOT_DIR)/include
-LIB := -L $(CUDA_HOME)/lib64 -lcudart -lcublas -lcublasLt -lcusparse -L $(CONDA_PREFIX)/lib
+FILES_CUDA := $(CSRC)/ops.cu $(CSRC)/kernels.cu
+FILES_CPP := $(CSRC)/pythonInterface.c
+
+# with rtools40
+#INCLUDE_NVCC := -I $(CUDA_HOME)/include -I $(ROOT_DIR)/csrc -I $(CONDA_PREFIX)/include -I $(ROOT_DIR)/include -I c:/app/rtools40/mingw64/x86_64-w64-mingw32/include
+INCLUDE_NVCC := -I $(CUDA_HOME)/include -I $(ROOT_DIR)/csrc -I $(ROOT_DIR)/include -I $(WINLIBS_DIR)/include
+# -I $(WINLIBS_DIR)/x86_64-w64-mingw32/include
+
+#for zig
+#INCLUDE_CC := -I $(CUDA_HOME)/include -I $(CUDA_HOME)/include/cuda/std/detail/libcxx/include -I $(ROOT_DIR)/csrc -I $(CONDA_PREFIX)/include -I $(ROOT_DIR)/include -I c:/app/rtools40/mingw64/x86_64-w64-mingw32/include 
+# for rtools40/mingw64
+#INCLUDE_CC := -I $(ROOT_DIR)/csrc -I $(ROOT_DIR)/include -I $(CUDA_HOME)/include -I $(ROOT_DIR)/include -I c:/app/rtools40/mingw64/x86_64-w64-mingw32/include  -I c:/projects/libunistd/unistd
+# for winlibs/mingw64
+#INCLUDE_CC := -I $(ROOT_DIR)/csrc -I $(ROOT_DIR)/include -I $(WINLIBS_DIR)/include -I $(CUDA_HOME)/include
+# for cl
+INCLUDE_CC := /I$(ROOT_DIR)/csrc /I$(ROOT_DIR)/include /I$(WINLIBS_DIR)/include /I$(CUDA_HOME)/include
+
+LIB := -L$(CUDA_HOME)/lib/x64 -lcudart -lcublas -lcublasLt -lcusparse
+LIB_CL := /LIBPATH:"c:/app/cu118/lib/x64" /LIBPATH:"$(VCToolsInstallDir)/lib/x64" cudart.lib cublas.lib cublasLt.lib cusparse.lib
 
 # NVIDIA NVCC compilation flags
 COMPUTE_CAPABILITY += -gencode arch=compute_50,code=sm_50 # Maxwell
@@ -53,11 +73,16 @@ CC_cublasLt111 += -gencode arch=compute_86,code=sm_86
 CC_ADA_HOPPER := -gencode arch=compute_89,code=sm_89
 CC_ADA_HOPPER += -gencode arch=compute_90,code=sm_90
 
+CC_RTX := -gencode arch=compute_89,code=sm_89
+#CC_RTX += -gencode arch=compute_86,code=sm_86
+
 
 all: $(BUILD_DIR) env
-	$(NVCC) $(CC_cublasLt111) -Xcompiler '-fPIC' --use_fast_math -Xptxas=-v -dc $(FILES_CUDA) $(INCLUDE) $(LIB) --output-directory $(BUILD_DIR)
-	$(NVCC) $(CC_cublasLt111) -Xcompiler '-fPIC' -dlink $(BUILD_DIR)/ops.o $(BUILD_DIR)/kernels.o -o $(BUILD_DIR)/link.o
-	$(GPP) -std=c++14 -DBUILD_CUDA -shared -fPIC $(INCLUDE) $(BUILD_DIR)/ops.o $(BUILD_DIR)/kernels.o $(BUILD_DIR)/link.o $(FILES_CPP) -o ./bitsandbytes/libbitsandbytes_cuda$(CUDA_VERSION).so $(LIB)
+#	$(NVCC) $(CC_RTX) --use_fast_math -dc $(FILES_CUDA) $(INCLUDE_NVCC) $(LIB) --output-directory $(BUILD_DIR)
+#	$(NVCC) $(CC_RTX) -dlink $(BUILD_DIR)/ops.obj $(BUILD_DIR)/kernels.obj -o $(BUILD_DIR)/link.obj
+#	$(GPP) -std=c++14 -DBUILD_CUDA -shared $(INCLUDE_CC) $(BUILD_DIR)/ops.obj $(BUILD_DIR)/kernels.obj $(BUILD_DIR)/link.obj $(FILES_CPP) -o ./bitsandbytes/libbitsandbytes_cuda$(CUDA_VERSION).so $(LIB)
+	$(CL) /EHsc /TP /std:c++14 /DBUILD_CUDA $(INCLUDE_CC) $(FILES_CPP) /link /dll /out:./bitsandbytes/libbitsandbytes_cuda$(CUDA_VERSION).dll $(LIB_CL) $(BUILD_DIR)/ops.obj $(BUILD_DIR)/kernels.obj $(BUILD_DIR)/link.obj
+
 
 cuda110_nomatmul_kepler: $(BUILD_DIR) env
 	$(NVCC) $(COMPUTE_CAPABILITY) $(CC_CUDA110) $(CC_KEPLER) -Xcompiler '-fPIC' --use_fast_math -Xptxas=-v -dc $(FILES_CUDA) $(INCLUDE) $(LIB) --output-directory $(BUILD_DIR) -D NO_CUBLASLT

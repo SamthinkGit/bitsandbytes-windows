@@ -2513,7 +2513,8 @@ template <int THREADS, int ITEMS_PER_THREAD, int TILE_ROWS, int TILE_COLS, int S
   }
 }
 
-template <int THREADS, int ITEMS_PER_THREAD, int TILE_ROWS, int TILE_COLS, int TRANSPOSE, int FORMAT> __global__ void kTransformRowToFormat(char *__restrict__ const A, char *out, int rows, int cols, int tiledCols, int outRows, int outCols)
+template <int THREADS, int ITEMS_PER_THREAD, int TILE_ROWS, int TILE_COLS, int TRANSPOSE, int FORMAT>
+__global__ void kTransformRowToFormat(char *__restrict__ const A, char *out, int rows, int cols, int tiledCols, int outRows, int outCols)
 {
 
   // 0. Load data into 32*32 shared memory tiles
@@ -3822,12 +3823,12 @@ template __global__ void kgemm_4bit_inference_naive<float, 128, 32>(int M, int N
 template __global__ void kExtractOutliers<COL_TURING>(char *A, int *idx, char *out, int idx_size, int rowsA, int colsA, int tiledRowsA, int tiledColsA);
 template __global__ void kExtractOutliers<COL_AMPERE>(char *A, int *idx, char *out, int idx_size, int rowsA, int colsA, int tiledRowsA, int tiledColsA);
 
-template __global__ void kspmm_coo_very_sparse_naive<half, 8, 16>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, half *B, half *out, float *dequant_stats, int nnz, int rowsA, int rowsB, int colsB);
-template __global__ void kspmm_coo_very_sparse_naive<half, 16, 16>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, half *B, half *out, float *dequant_stats, int nnz, int rowsA, int rowsB, int colsB);
-template __global__ void kspmm_coo_very_sparse_naive<half, 32, 16>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, half *B, half *out, float *dequant_stats, int nnz, int rowsA, int rowsB, int colsB);
-template __global__ void kspmm_coo_very_sparse_naive<signed char, 8, 8>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, signed char *B, half *out, float *dequant_stats, int nnz, int rowsA, int rowsB, int colsB);
-template __global__ void kspmm_coo_very_sparse_naive<signed char, 16, 8>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, signed char *B, half *out, float *dequant_stats, int nnz, int rowsA, int rowsB, int colsB);
-template __global__ void kspmm_coo_very_sparse_naive<signed char, 32, 8>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, signed char *B, half *out, float *dequant_stats, int nnz, int rowsA, int rowsB, int colsB);
+template __global__ void kspmm_coo_very_sparse_naive<half, 8, 16>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, half *B, half *out, float * __restrict__ const dequant_stats, int nnz, int rowsA, int rowsB, int colsB);
+template __global__ void kspmm_coo_very_sparse_naive<half, 16, 16>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, half *B, half *out, float * __restrict__ const dequant_stats, int nnz, int rowsA, int rowsB, int colsB);
+template __global__ void kspmm_coo_very_sparse_naive<half, 32, 16>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, half *B, half *out, float * __restrict__ const dequant_stats, int nnz, int rowsA, int rowsB, int colsB);
+template __global__ void kspmm_coo_very_sparse_naive<signed char, 8, 8>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, signed char *B, half *out, float * __restrict__ const dequant_stats, int nnz, int rowsA, int rowsB, int colsB);
+template __global__ void kspmm_coo_very_sparse_naive<signed char, 16, 8>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, signed char *B, half *out, float * __restrict__ const dequant_stats, int nnz, int rowsA, int rowsB, int colsB);
+template __global__ void kspmm_coo_very_sparse_naive<signed char, 32, 8>(int *max_count, int *max_idx, int *offset_rowidx, int *rowidx, int *colidx, half *values, signed char *B, half *out, float * __restrict__ const dequant_stats, int nnz, int rowsA, int rowsB, int colsB);
 
 template __global__ void kTransformRowToFormat<256, 8, 32, 32*8, 0, COL32>(char *__restrict__ const A, char *out, int rows, int cols, int tiledCols, int outRows, int outCols);
 template __global__ void kTransformRowToFormat<256, 8, 32, 32*8, 1, COL32>(char *__restrict__ const A, char *out, int rows, int cols, int tiledCols, int outRows, int outCols);
@@ -3847,45 +3848,52 @@ template __device__ unsigned char dQuantize<1>(float* smem_code, const float ran
 template __global__ void kEstimateQuantiles(float *__restrict__ const A, float *code, const float offset, const float max_val, const int n);
 template __global__ void kEstimateQuantiles(half *__restrict__ const A, float *code, const float offset, const half max_val, const int n);
 
-#define MAKE_PreconditionOptimizer32bit1State(oname, gtype) \
-template __global__ void kPreconditionOptimizer32bit1State<gtype, oname, 4096, 8>(gtype* g, gtype* p, \
-                float* state1, float *unorm, \
-                const float beta1, const float beta2, const float eps, const float weight_decay, \
-                const int step, const float lr, const float gnorm_scale, const int n); \
+template __global__ void kPreconditionOptimizer32bit1State<half, ADAM, 4096, 8>(half* g, half* p, float* state1, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
+template __global__ void kPreconditionOptimizer32bit1State<float, ADAM, 4096, 8>(float* g, float* p, float* state1, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
+template __global__ void kPreconditionOptimizer32bit1State<__nv_bfloat16, ADAM, 4096, 8>(__nv_bfloat16* g, __nv_bfloat16* p, float* state1, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
+template __global__ void kPreconditionOptimizer32bit1State<half, MOMENTUM, 4096, 8>(half* g, half* p, float* state1, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
+template __global__ void kPreconditionOptimizer32bit1State<float, MOMENTUM, 4096, 8>(float* g, float* p, float* state1, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
+template __global__ void kPreconditionOptimizer32bit1State<half, RMSPROP, 4096, 8>(half* g, half* p, float* state1, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
+template __global__ void kPreconditionOptimizer32bit1State<float, RMSPROP, 4096, 8>(float* g, float* p, float* state1, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
+template __global__ void kPreconditionOptimizer32bit1State<half, LION, 4096, 8>(half* g, half* p, float* state1, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
+template __global__ void kPreconditionOptimizer32bit1State<float, LION, 4096, 8>(float* g, float* p, float* state1, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
+template __global__ void kPreconditionOptimizer32bit1State<__nv_bfloat16, LION, 4096, 8>(__nv_bfloat16* g, __nv_bfloat16* p, float* state1, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
+template __global__ void kPreconditionOptimizer32bit1State<half, ADAGRAD, 4096, 8>(half* g, half* p, float* state1, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
+template __global__ void kPreconditionOptimizer32bit1State<float, ADAGRAD, 4096, 8>(float* g, float* p, float* state1, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
 
-MAKE_PreconditionOptimizer32bit1State(MOMENTUM, half)
-MAKE_PreconditionOptimizer32bit1State(MOMENTUM, float)
-MAKE_PreconditionOptimizer32bit1State(RMSPROP, half)
-MAKE_PreconditionOptimizer32bit1State(RMSPROP, float)
-MAKE_PreconditionOptimizer32bit1State(LION, half)
-MAKE_PreconditionOptimizer32bit1State(LION, float)
-MAKE_PreconditionOptimizer32bit1State(LION, __nv_bfloat16)
-MAKE_PreconditionOptimizer32bit1State(ADAGRAD, half)
-MAKE_PreconditionOptimizer32bit1State(ADAGRAD, float)
+template __global__ void kOptimizer32bit1State<half, ADAM>(half* g, half* p, float* state1, float *unorm, const float max_unorm, const float param_norm, const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
+template __global__ void kOptimizer32bit1State<float, ADAM>(float* g, float* p, float* state1, float *unorm, const float max_unorm, const float param_norm, const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
+template __global__ void kOptimizer32bit1State<half, MOMENTUM>(half* g, half* p, float* state1, float *unorm, const float max_unorm, const float param_norm, const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
+template __global__ void kOptimizer32bit1State<float, MOMENTUM>(float* g, float* p, float* state1, float *unorm, const float max_unorm, const float param_norm, const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
+template __global__ void kOptimizer32bit1State<half, RMSPROP>(half* g, half* p, float* state1, float *unorm, const float max_unorm, const float param_norm, const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
+template __global__ void kOptimizer32bit1State<float, RMSPROP>(float* g, float* p, float* state1, float *unorm, const float max_unorm, const float param_norm, const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
+template __global__ void kOptimizer32bit1State<half, LION>(half* g, half* p, float* state1, float *unorm, const float max_unorm, const float param_norm, const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
+template __global__ void kOptimizer32bit1State<float, LION>(float* g, float* p, float* state1, float *unorm, const float max_unorm, const float param_norm, const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
+template __global__ void kOptimizer32bit1State<__nv_bfloat16, ADAM>(__nv_bfloat16* g, __nv_bfloat16* p, float* state1, float *unorm, const float max_unorm, const float param_norm, const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
+template __global__ void kOptimizer32bit1State<__nv_bfloat16, LION>(__nv_bfloat16* g, __nv_bfloat16* p, float* state1, float *unorm, const float max_unorm, const float param_norm, const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
+template __global__ void kOptimizer32bit1State<half, ADAGRAD>(half* g, half* p, float* state1, float *unorm, const float max_unorm, const float param_norm, const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
+template __global__ void kOptimizer32bit1State<float, ADAGRAD>(float* g, float* p, float* state1, float *unorm, const float max_unorm, const float param_norm, const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
 
-#define MAKE_Optimizer32bit1State(oname, gtype) \
-template __global__ void kOptimizer32bit1State<gtype, oname>(gtype* g, gtype* p, float* state1, float *unorm, const float max_unorm, const float param_norm, \
-    const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n); \
+template __global__ void kPreconditionOptimizer32bit2State<float, ADAM, 4096, 8>(float* g, float* p,float* state1, float* state2, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
+template __global__ void kPreconditionOptimizer32bit2State<half, ADAM, 4096, 8>(half* g, half* p,float* state1, float* state2, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
+template __global__ void kPreconditionOptimizer32bit2State<__nv_bfloat16, ADAM, 4096, 8>(__nv_bfloat16* g, __nv_bfloat16* p,float* state1, float* state2, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
 
-MAKE_Optimizer32bit1State(MOMENTUM, half)
-MAKE_Optimizer32bit1State(MOMENTUM, float)
-MAKE_Optimizer32bit1State(RMSPROP, half)
-MAKE_Optimizer32bit1State(RMSPROP, float)
-MAKE_Optimizer32bit1State(LION, half)
-MAKE_Optimizer32bit1State(LION, float)
-MAKE_Optimizer32bit1State(LION, __nv_bfloat16)
-MAKE_Optimizer32bit1State(ADAGRAD, half)
-MAKE_Optimizer32bit1State(ADAGRAD, float)
+template __global__ void kPreconditionOptimizer32bit2State<float, MOMENTUM, 4096, 8>(float* g, float* p,float* state1, float* state2, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
+template __global__ void kPreconditionOptimizer32bit2State<half, MOMENTUM, 4096, 8>(half* g, half* p,float* state1, float* state2, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
+template __global__ void kPreconditionOptimizer32bit2State<__nv_bfloat16, MOMENTUM, 4096, 8>(__nv_bfloat16* g, __nv_bfloat16* p,float* state1, float* state2, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
 
-#define MAKE_PreconditionOptimizer32bit2State(oname, gtype) \
-template __global__ void kPreconditionOptimizer32bit2State<gtype, oname, 4096, 8>(gtype* g, gtype* p,  \
-                float* state1, float* state2, float *unorm, \
-                const float beta1, const float beta2, const float eps, const float weight_decay, \
-                const int step, const float lr, const float gnorm_scale, const int n); \
+template __global__ void kPreconditionOptimizer32bit2State<float, ADAGRAD, 4096, 8>(float* g, float* p,float* state1, float* state2, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
+template __global__ void kPreconditionOptimizer32bit2State<half, ADAGRAD, 4096, 8>(half* g, half* p,float* state1, float* state2, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
+template __global__ void kPreconditionOptimizer32bit2State<__nv_bfloat16, ADAGRAD, 4096, 8>(__nv_bfloat16* g, __nv_bfloat16* p,float* state1, float* state2, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
 
-MAKE_PreconditionOptimizer32bit2State(ADAM, float)
-MAKE_PreconditionOptimizer32bit2State(ADAM, half)
-MAKE_PreconditionOptimizer32bit2State(ADAM, __nv_bfloat16)
+template __global__ void kPreconditionOptimizer32bit2State<float, RMSPROP, 4096, 8>(float* g, float* p,float* state1, float* state2, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
+template __global__ void kPreconditionOptimizer32bit2State<half, RMSPROP, 4096, 8>(half* g, half* p,float* state1, float* state2, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
+template __global__ void kPreconditionOptimizer32bit2State<__nv_bfloat16, RMSPROP, 4096, 8>(__nv_bfloat16* g, __nv_bfloat16* p,float* state1, float* state2, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
+
+template __global__ void kPreconditionOptimizer32bit2State<float, LION, 4096, 8>(float* g, float* p,float* state1, float* state2, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
+template __global__ void kPreconditionOptimizer32bit2State<half, LION, 4096, 8>(half* g, half* p,float* state1, float* state2, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
+template __global__ void kPreconditionOptimizer32bit2State<__nv_bfloat16, LION, 4096, 8>(__nv_bfloat16* g, __nv_bfloat16* p,float* state1, float* state2, float *unorm, const float beta1, const float beta2, const float eps, const float weight_decay, const int step, const float lr, const float gnorm_scale, const int n);
+
 
 template __global__ void kOptimizer32bit2State<float, ADAM>(float* g, float* p, float* state1, float* state2, float *unorm, const float max_unorm, const float param_norm,
     const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
@@ -3894,7 +3902,36 @@ template __global__ void kOptimizer32bit2State<half, ADAM>(half* g, half* p, flo
 template __global__ void kOptimizer32bit2State<__nv_bfloat16, ADAM>(__nv_bfloat16* g, __nv_bfloat16* p, float* state1, float* state2, float *unorm, const float max_unorm, const float param_norm,
     const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
 
-#define MAKE_PreconditionStatic8bit1State(oname, gtype) \
+template __global__ void kOptimizer32bit2State<float, MOMENTUM>(float* g, float* p, float* state1, float* state2, float *unorm, const float max_unorm, const float param_norm,
+    const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
+template __global__ void kOptimizer32bit2State<half, MOMENTUM>(half* g, half* p, float* state1, float* state2, float *unorm, const float max_unorm, const float param_norm,
+    const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
+template __global__ void kOptimizer32bit2State<__nv_bfloat16, MOMENTUM>(__nv_bfloat16* g, __nv_bfloat16* p, float* state1, float* state2, float *unorm, const float max_unorm, const float param_norm,
+    const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
+
+template __global__ void kOptimizer32bit2State<float, RMSPROP>(float* g, float* p, float* state1, float* state2, float *unorm, const float max_unorm, const float param_norm,
+    const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
+template __global__ void kOptimizer32bit2State<half, RMSPROP>(half* g, half* p, float* state1, float* state2, float *unorm, const float max_unorm, const float param_norm,
+    const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
+template __global__ void kOptimizer32bit2State<__nv_bfloat16, RMSPROP>(__nv_bfloat16* g, __nv_bfloat16* p, float* state1, float* state2, float *unorm, const float max_unorm, const float param_norm,
+    const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
+
+template __global__ void kOptimizer32bit2State<float, ADAGRAD>(float* g, float* p, float* state1, float* state2, float *unorm, const float max_unorm, const float param_norm,
+    const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
+template __global__ void kOptimizer32bit2State<half, ADAGRAD>(half* g, half* p, float* state1, float* state2, float *unorm, const float max_unorm, const float param_norm,
+    const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
+template __global__ void kOptimizer32bit2State<__nv_bfloat16, ADAGRAD>(__nv_bfloat16* g, __nv_bfloat16* p, float* state1, float* state2, float *unorm, const float max_unorm, const float param_norm,
+    const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
+
+template __global__ void kOptimizer32bit2State<float, LION>(float* g, float* p, float* state1, float* state2, float *unorm, const float max_unorm, const float param_norm,
+    const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
+template __global__ void kOptimizer32bit2State<half, LION>(half* g, half* p, float* state1, float* state2, float *unorm, const float max_unorm, const float param_norm,
+    const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
+template __global__ void kOptimizer32bit2State<__nv_bfloat16, LION>(__nv_bfloat16* g, __nv_bfloat16* p, float* state1, float* state2, float *unorm, const float max_unorm, const float param_norm,
+    const float beta1, const float beta2, const float eps, const float weight_decay,const int step, const float lr, const float gnorm_scale, const bool skip_zeros, const int n);
+
+
+#define MAKE_PreconditionStatic8bit1State(gtype, oname) \
 template __global__ void kPreconditionOptimizerStatic8bit1State<gtype, oname>(gtype* p, gtype* __restrict__ const g, unsigned char*__restrict__  const state1,  \
                 float *unorm,  \
                 const float beta1,  \
@@ -3906,14 +3943,16 @@ template __global__ void kPreconditionOptimizerStatic8bit1State<gtype, oname>(gt
                 const float gnorm_scale,  \
                 const int n); \
 
-MAKE_PreconditionStatic8bit1State(MOMENTUM, half)
-MAKE_PreconditionStatic8bit1State(MOMENTUM, float)
-MAKE_PreconditionStatic8bit1State(RMSPROP, half)
-MAKE_PreconditionStatic8bit1State(RMSPROP, float)
-MAKE_PreconditionStatic8bit1State(LION, half)
-MAKE_PreconditionStatic8bit1State(LION, float)
+MAKE_PreconditionStatic8bit1State(half, ADAM)
+MAKE_PreconditionStatic8bit1State(float, ADAM)
+MAKE_PreconditionStatic8bit1State(half, MOMENTUM)
+MAKE_PreconditionStatic8bit1State(float, MOMENTUM)
+MAKE_PreconditionStatic8bit1State(half, RMSPROP)
+MAKE_PreconditionStatic8bit1State(float, RMSPROP)
+MAKE_PreconditionStatic8bit1State(half, LION)
+MAKE_PreconditionStatic8bit1State(float, LION)
 
-#define MAKE_optimizerStatic8bit1State(oname, gtype) \
+#define MAKE_optimizerStatic8bit1State(gtype, oname) \
 template __global__ void kOptimizerStatic8bit1State<gtype, oname>(gtype* p, gtype* const g, unsigned char* state1,  \
                 const float *unorm, const float max_unorm, const float param_norm, \
                 const float beta1,  \
@@ -3925,27 +3964,26 @@ template __global__ void kOptimizerStatic8bit1State<gtype, oname>(gtype* p, gtyp
                 const float gnorm_scale,  \
                 const int n); \
 
-MAKE_optimizerStatic8bit1State(MOMENTUM, half)
-MAKE_optimizerStatic8bit1State(MOMENTUM, float)
-MAKE_optimizerStatic8bit1State(RMSPROP, half)
-MAKE_optimizerStatic8bit1State(RMSPROP, float)
-MAKE_optimizerStatic8bit1State(LION, half)
-MAKE_optimizerStatic8bit1State(LION, float)
+MAKE_optimizerStatic8bit1State(half, ADAM)
+MAKE_optimizerStatic8bit1State(float, ADAM)
+MAKE_optimizerStatic8bit1State(half, MOMENTUM)
+MAKE_optimizerStatic8bit1State(float, MOMENTUM)
+MAKE_optimizerStatic8bit1State(half, RMSPROP)
+MAKE_optimizerStatic8bit1State(float, RMSPROP)
+MAKE_optimizerStatic8bit1State(half, LION)
+MAKE_optimizerStatic8bit1State(float, LION)
 
-#define MAKE_PreconditionStatic8bit2State(oname, gtype) \
-template __global__ void kPreconditionOptimizerStatic8bit2State<gtype, oname>(gtype* p, gtype* __restrict__ const g, unsigned char*__restrict__  const state1, unsigned char* __restrict__ const state2, \
-                float *unorm, \
-                const float beta1, const float beta2, \
-                const float eps, const int step,  \
-                float* __restrict__ const quantiles1, float* __restrict__ const quantiles2, \
-                float* max1, float* max2, float* new_max1, float* new_max2, \
-                const float gnorm_scale,  \
-                const int n); \
+template __global__ void kPreconditionOptimizerStatic8bit2State<half, ADAM>(half* p, half* __restrict__ const g, unsigned char* __restrict__ const state1, unsigned char* __restrict__ const state2, float *unorm, const float beta1, const float beta2, const float eps, const int step,float* __restrict__ const quantiles1, float* __restrict__ const quantiles2, float* max1, float* max2, float* new_max1, float* new_max2, const float gnorm_scale,const int n);
+template __global__ void kPreconditionOptimizerStatic8bit2State<float, ADAM>(float* p, float* __restrict__ const g, unsigned char* __restrict__ const state1, unsigned char* __restrict__ const state2, float *unorm, const float beta1, const float beta2, const float eps, const int step,float* __restrict__ const quantiles1, float* __restrict__ const quantiles2, float* max1, float* max2, float* new_max1, float* new_max2, const float gnorm_scale,const int n);
+template __global__ void kPreconditionOptimizerStatic8bit2State<half, MOMENTUM>(half* p, half* __restrict__ const g, unsigned char* __restrict__ const state1, unsigned char* __restrict__ const state2, float *unorm, const float beta1, const float beta2, const float eps, const int step,float* __restrict__ const quantiles1, float* __restrict__ const quantiles2, float* max1, float* max2, float* new_max1, float* new_max2, const float gnorm_scale,const int n);
+template __global__ void kPreconditionOptimizerStatic8bit2State<float, MOMENTUM>(float* p, float* __restrict__ const g, unsigned char* __restrict__ const state1, unsigned char* __restrict__ const state2, float *unorm, const float beta1, const float beta2, const float eps, const int step,float* __restrict__ const quantiles1, float* __restrict__ const quantiles2, float* max1, float* max2, float* new_max1, float* new_max2, const float gnorm_scale,const int n);
+template __global__ void kPreconditionOptimizerStatic8bit2State<half, RMSPROP>(half* p, half* __restrict__ const g, unsigned char* __restrict__ const state1, unsigned char* __restrict__ const state2, float *unorm, const float beta1, const float beta2, const float eps, const int step,float* __restrict__ const quantiles1, float* __restrict__ const quantiles2, float* max1, float* max2, float* new_max1, float* new_max2, const float gnorm_scale,const int n);
+template __global__ void kPreconditionOptimizerStatic8bit2State<float, RMSPROP>(float* p, float* __restrict__ const g, unsigned char* __restrict__ const state1, unsigned char* __restrict__ const state2, float *unorm, const float beta1, const float beta2, const float eps, const int step,float* __restrict__ const quantiles1, float* __restrict__ const quantiles2, float* max1, float* max2, float* new_max1, float* new_max2, const float gnorm_scale,const int n);
+template __global__ void kPreconditionOptimizerStatic8bit2State<half, LION>(half* p, half* __restrict__ const g, unsigned char* __restrict__ const state1, unsigned char* __restrict__ const state2, float *unorm, const float beta1, const float beta2, const float eps, const int step,float* __restrict__ const quantiles1, float* __restrict__ const quantiles2, float* max1, float* max2, float* new_max1, float* new_max2, const float gnorm_scale,const int n);
+template __global__ void kPreconditionOptimizerStatic8bit2State<float, LION>(float* p, float* __restrict__ const g, unsigned char* __restrict__ const state1, unsigned char* __restrict__ const state2, float *unorm, const float beta1, const float beta2, const float eps, const int step,float* __restrict__ const quantiles1, float* __restrict__ const quantiles2, float* max1, float* max2, float* new_max1, float* new_max2, const float gnorm_scale,const int n);
 
-MAKE_PreconditionStatic8bit2State(ADAM, half)
-MAKE_PreconditionStatic8bit2State(ADAM, float)
 
-#define MAKE_optimizerStatic8bit2State(oname, gtype) \
+#define MAKE_optimizerStatic8bit2State(gtype, oname) \
 template __global__ void kOptimizerStatic8bit2State<gtype, oname>(gtype* p, gtype* const g, unsigned char* state1, unsigned char* state2, \
                 const float *unorm, const float max_unorm, const float param_norm, \
                 const float beta1, const float beta2, \
@@ -3956,8 +3994,15 @@ template __global__ void kOptimizerStatic8bit2State<gtype, oname>(gtype* p, gtyp
                 const float gnorm_scale,  \
                 const int n); \
 
-MAKE_optimizerStatic8bit2State(ADAM, half)
-MAKE_optimizerStatic8bit2State(ADAM, float)
+MAKE_optimizerStatic8bit2State(half, ADAM)
+MAKE_optimizerStatic8bit2State(float, ADAM)
+MAKE_optimizerStatic8bit2State(half, MOMENTUM)
+MAKE_optimizerStatic8bit2State(float, MOMENTUM)
+MAKE_optimizerStatic8bit2State(half, RMSPROP)
+MAKE_optimizerStatic8bit2State(float, RMSPROP)
+MAKE_optimizerStatic8bit2State(half, LION)
+MAKE_optimizerStatic8bit2State(float, LION)
+
 
 template __global__ void kPercentileClipping<float, 2048, 4>(float * __restrict__ g, float *gnorm_vec, int step, const int n);
 template __global__ void kPercentileClipping<half, 2048, 4>(half * __restrict__ g, float *gnorm_vec, int step, const int n);
@@ -4043,7 +4088,7 @@ template __global__ void kDequantizeBlockwise<__nv_bfloat16, 512, 64, 8, FP4>(fl
 template __global__ void kDequantizeBlockwise<__nv_bfloat16, 512, 64, 8, General8bit>(float *code, unsigned char * A, float * absmax, __nv_bfloat16 *out, const int blocksize, const int n);
 template __global__ void kDequantizeBlockwise<__nv_bfloat16, 512, 64, 8, NF4>(float *code, unsigned char * A, float * absmax, __nv_bfloat16 *out, const int blocksize, const int n);
 
-#define MAKE_OptimizerStatic8bit2StateBlockwise(oname, gtype, block_size, num_per_thread) \
+#define MAKE_OptimizerStatic8bit2StateBlockwise(gtype, oname, block_size, num_per_thread) \
 template __global__ void kOptimizerStatic8bit2StateBlockwise<gtype, oname, block_size, num_per_thread>(gtype* p, gtype* __restrict__ const g, unsigned char* state1, unsigned char* state2, \
                 const float beta1, const float beta2, \
                 const float eps, const int step, const float lr, \
@@ -4052,9 +4097,25 @@ template __global__ void kOptimizerStatic8bit2StateBlockwise<gtype, oname, block
                 float weight_decay, \
                 const float gnorm_scale, const bool skip_zeros, const int n); \
 
-MAKE_OptimizerStatic8bit2StateBlockwise(ADAM, float, 2048, 8)
-MAKE_OptimizerStatic8bit2StateBlockwise(ADAM, half, 2048, 8)
-MAKE_OptimizerStatic8bit2StateBlockwise(ADAM, __nv_bfloat16, 2048, 8)
+MAKE_OptimizerStatic8bit2StateBlockwise(float, ADAM, 2048, 8)
+MAKE_OptimizerStatic8bit2StateBlockwise(half, ADAM, 2048, 8)
+MAKE_OptimizerStatic8bit2StateBlockwise(__nv_bfloat16, ADAM, 2048, 8)
+
+MAKE_OptimizerStatic8bit2StateBlockwise(float, MOMENTUM, 2048, 8)
+MAKE_OptimizerStatic8bit2StateBlockwise(half, MOMENTUM, 2048, 8)
+MAKE_OptimizerStatic8bit2StateBlockwise(__nv_bfloat16, MOMENTUM, 2048, 8)
+
+MAKE_OptimizerStatic8bit2StateBlockwise(float, RMSPROP, 2048, 8)
+MAKE_OptimizerStatic8bit2StateBlockwise(half, RMSPROP, 2048, 8)
+MAKE_OptimizerStatic8bit2StateBlockwise(__nv_bfloat16, RMSPROP, 2048, 8)
+
+MAKE_OptimizerStatic8bit2StateBlockwise(float, ADAGRAD, 2048, 8)
+MAKE_OptimizerStatic8bit2StateBlockwise(half, ADAGRAD, 2048, 8)
+MAKE_OptimizerStatic8bit2StateBlockwise(__nv_bfloat16, ADAGRAD, 2048, 8)
+
+MAKE_OptimizerStatic8bit2StateBlockwise(float, LION, 2048, 8)
+MAKE_OptimizerStatic8bit2StateBlockwise(half, LION, 2048, 8)
+MAKE_OptimizerStatic8bit2StateBlockwise(__nv_bfloat16, LION, 2048, 8)
 
 
 #define MAKE_OptimizerStatic8bit1StateBlockwise(oname, gtype, block_size, num_per_thread) \
@@ -4067,6 +4128,9 @@ template __global__ void kOptimizerStatic8bit1StateBlockwise<gtype, oname, block
                 float weight_decay, \
                 const float gnorm_scale, const bool skip_zeros, const int n); \
 
+MAKE_OptimizerStatic8bit1StateBlockwise(ADAM, float, 2048, 8)
+MAKE_OptimizerStatic8bit1StateBlockwise(ADAM, half, 2048, 8)
+MAKE_OptimizerStatic8bit1StateBlockwise(ADAM, __nv_bfloat16, 2048, 8)
 MAKE_OptimizerStatic8bit1StateBlockwise(MOMENTUM, float, 2048, 8)
 MAKE_OptimizerStatic8bit1StateBlockwise(MOMENTUM, half, 2048, 8)
 MAKE_OptimizerStatic8bit1StateBlockwise(RMSPROP, float, 2048, 8)

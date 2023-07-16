@@ -33,8 +33,9 @@ def execute_and_return(command_string: str) -> Tuple[str, str]:
 def find_file_recursive(folder, filename):
     cmd = f'find {folder} -name {filename}'
     out, err = execute_and_return(cmd)
+    print(err)
     if len(err) > 0:
-        raise RuntimeError('Something when wrong when trying to find file. Maybe you do not have a linux system?')
+        print(f'INFO: {err} for command: {cmd}')
 
     return out
 
@@ -65,7 +66,7 @@ def generate_bug_report_information():
     print_header("LD_LIBRARY CUDA PATHS")
     if 'LD_LIBRARY_PATH' in os.environ:
         lib_path = os.environ['LD_LIBRARY_PATH'].strip()
-        for path in set(lib_path.split(':')):
+        for path in set(lib_path.split(';')):
             try:
                 if isdir(path):
                     print_header(f"{path} CUDA PATHS")

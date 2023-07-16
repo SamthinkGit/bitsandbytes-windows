@@ -31,7 +31,7 @@ from .env_vars import get_potentially_lib_path_containing_env_vars
 # libcudart.so is missing by default for a conda install with PyTorch 2.0 and instead
 # we have libcudart.so.11.0 which causes a lot of errors before
 # not sure if libcudart.so.12.0 exists in pytorch installs, but it does not hurt
-CUDA_RUNTIME_LIBS: list = ["libcudart.so", 'libcudart.so.11.0', 'libcudart.so.12.0']
+CUDA_RUNTIME_LIBS: list = ["libcudart.so", 'libcudart.so.11.0', 'libcudart.so.12.0', "cudart.lib"]
 
 # this is a order list of backup paths to search CUDA in, if it cannot be found in the main environmental paths
 backup_paths = []
@@ -150,10 +150,10 @@ class CUDASetup:
                     self.add_log_entry('')
                     self.generate_instructions()
                     raise Exception('CUDA SETUP: Setup Failed!')
-                self.lib = ct.cdll.LoadLibrary(binary_path)
+                self.lib = ct.cdll.LoadLibrary(str(binary_path))
             else:
                 self.add_log_entry(f"CUDA SETUP: Loading binary {binary_path}...")
-                self.lib = ct.cdll.LoadLibrary(binary_path)
+                self.lib = ct.cdll.LoadLibrary(str(binary_path))
         except Exception as ex:
             self.add_log_entry(str(ex))
 
@@ -187,7 +187,7 @@ def is_cublasLt_compatible(cc):
     return has_cublaslt
 
 def extract_candidate_paths(paths_list_candidate: str) -> Set[Path]:
-    return {Path(ld_path) for ld_path in paths_list_candidate.split(":") if ld_path}
+    return {Path(ld_path) for ld_path in paths_list_candidate.split(";") if ld_path}
 
 
 def remove_non_existent_dirs(candidate_paths: Set[Path]) -> Set[Path]:
@@ -278,19 +278,18 @@ def determine_cuda_runtime_lib_path() -> Union[Path, None]:
 
         if lib_ld_cuda_libs:
             cuda_runtime_libs.update(lib_ld_cuda_libs)
-        warn_in_case_of_duplicates(lib_ld_cuda_libs)
+            warn_in_case_of_duplicates(lib_ld_cuda_libs)
+        else:
+            CUDASetup.get_instance().add_log_entry(f'{candidate_env_vars["LD_LIBRARY_PATH"]} did not contain '
+                f'{CUDA_RUNTIME_LIBS} as expected! Searching further paths...', is_warning=True)
 
-        CUDASetup.get_instance().add_log_entry(f'{candidate_env_vars["LD_LIBRARY_PATH"]} did not contain '
-            f'{CUDA_RUNTIME_LIBS} as expected! Searching further paths...', is_warning=True)
+            remaining_candidate_env_vars = {
+                env_var: value for env_var, value in candidate_env_vars.items()
+                if env_var not in {"CONDA_PREFIX", "LD_LIBRARY_PATH"}
+            }
 
-    remaining_candidate_env_vars = {
-        env_var: value for env_var, value in candidate_env_vars.items()
-        if env_var not in {"CONDA_PREFIX", "LD_LIBRARY_PATH"}
-    }
-
-    cuda_runtime_libs = set()
-    for env_var, value in remaining_candidate_env_vars.items():
-        cuda_runtime_libs.update(find_cuda_lib_in(value))
+            for env_var, value in remaining_candidate_env_vars.items():
+                cuda_runtime_libs.update(find_cuda_lib_in(value))
 
     if len(cuda_runtime_libs) == 0:
         CUDASetup.get_instance().add_log_entry('CUDA_SETUP: WARNING! libcudart.so not found in any environmental path. Searching in backup paths...')
@@ -354,7 +353,7 @@ def evaluate_cuda_setup():
     # since most installations will have the libcudart.so installed, but not the compiler
 
     if has_cublaslt:
-        binary_name = f"libbitsandbytes_cuda{cuda_version_string}.so"
+        binary_name = f"libbitsandbytes_cuda{cuda_version_string}.dll"
     else:
         "if not has_cublaslt (CC < 7.5), then we have to choose  _nocublaslt.so"
         binary_name = f"libbitsandbytes_cuda{cuda_version_string}_nocublaslt.so"
