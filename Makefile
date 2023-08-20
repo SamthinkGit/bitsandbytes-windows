@@ -4,13 +4,19 @@ ROOT_DIR := .
 GPP:= g++
 CL:= cl
 #GPP:= /sw/gcc/11.2.0/bin/g++
+
+###### CUDA DIRECTORY #########
 ifeq ($(CUDA_HOME),)
-	CUDA_HOME:= $(shell which nvcc | rev | cut -d'/' -f3- | rev)
+	CUDA_HOME:="C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.1"
 endif
+###############################
 
 ifndef CUDA_VERSION
 $(warning WARNING: CUDA_VERSION not set. Call make with CUDA string, for example: make cuda11x CUDA_VERSION=115 or make cpuonly CUDA_VERSION=CPU)
-CUDA_VERSION:=118
+####### CUDA VERSION ###########
+CUDA_VERSION:=121
+################################
+
 endif
 
 ifndef VisualStudioVersion
@@ -45,7 +51,10 @@ INCLUDE_NVCC := -I $(CUDA_HOME)/include -I $(ROOT_DIR)/csrc -I $(ROOT_DIR)/inclu
 INCLUDE_CC := /I$(ROOT_DIR)/csrc /I$(ROOT_DIR)/include /I$(WINLIBS_DIR)/include /I$(CUDA_HOME)/include
 
 LIB := -L$(CUDA_HOME)/lib/x64 -lcudart -lcublas -lcublasLt -lcusparse
-LIB_CL := /LIBPATH:"c:/app/cu118/lib/x64" /LIBPATH:"$(VCToolsInstallDir)/lib/x64" cudart.lib cublas.lib cublasLt.lib cusparse.lib
+
+###### CAREFUL WITH CUDA VERSION HERE ######
+LIB_CL := /LIBPATH:"c:/app/cu121/lib/x64" /LIBPATH:"$(VCToolsInstallDir)/lib/x64" cudart.lib cublas.lib cublasLt.lib cusparse.lib
+############################################
 
 # NVIDIA NVCC compilation flags
 COMPUTE_CAPABILITY += -gencode arch=compute_50,code=sm_50 # Maxwell
